@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 项目数据库
+chroma_db/
+md5.text
+chat_history/
+
+# 敏感信息
+.env
+*.log
+
+# IDE
+.vscode/
+.idea/
