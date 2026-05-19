@@ -6,6 +6,14 @@ from PIL import Image
 import os
 import base64
 from io import BytesIO
+from datetime import datetime
+from file_history_store import (
+    get_conversation_list,
+    save_conversation,
+    load_conversation,
+    delete_conversation,
+    generate_title
+)
 
 # ========== 设置页面图标 ==========
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -87,7 +95,7 @@ st.set_page_config(
     page_title="尼可13号 - 《原神》提瓦特记录者",
     page_icon=favicon,
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 st.markdown(f"""
@@ -182,14 +190,30 @@ st.markdown(f"""
         filter: drop-shadow(0 4px 8px rgba(102, 126, 234, 0.4)) !important;
     }}
     /* 优化头像图片渲染质量 */
-      .stChatMessage [data-testid="avatar"] img {{
+    .stChatMessage [data-testid="avatar"] img {{
         image-rendering: -webkit-optimize-contrast;
         image-rendering: crisp-edges;
         image-rendering: pixelated;
         image-rendering: auto;
         -webkit-font-smoothing: antialiased;
     }}
-    
+
+    /* 对话列表项样式 */
+    .conversation-item {{
+        padding: 8px 12px;
+        margin: 4px 0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }}
+    .conversation-item:hover {{
+        background-color: #f0f2f6;
+    }}
+
     /* 响应式设计 */
     @media (max-width: 768px) {{
         .high-res-icon {{
@@ -288,6 +312,17 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
+# ========== 初始化会话状态（对话保存相关） ==========
+if "current_conversation_id" not in st.session_state:
+    st.session_state.current_conversation_id = None
+
+if "conversation_messages" not in st.session_state:
+    st.session_state.conversation_messages = {}
+
+if "rag" not in st.session_state:
+    with st.spinner("正在初始化尼可13号..."):
+        st.session_state.rag = RagService()
+
 # ========== 侧边栏配置 ==========
 with st.sidebar:
     st.markdown('<div class="sidebar-header">✨ 尼可13号</div>', unsafe_allow_html=True)
@@ -307,19 +342,100 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.markdown("### 💬 会话管理")
+    # ========== 新建对话按钮 ==========
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if st.button("➕ 新建对话", use_container_width=True):
+            # 保存当前对话
+            if st.session_state.current_conversation_id and st.session_state.current_conversation_id in st.session_state.conversation_messages:
+                messages = st.session_state.conversation_messages[st.session_state.current_conversation_id]
+                if messages:
+                    title = generate_title(messages)
+                    save_conversation(st.session_state.current_conversation_id, title, messages)
 
-    if st.button("➕ 新建会话", use_container_width=True):
-        st.session_state["message"] = [{"role": "assistant", "content": "你好呀~旅行者，有什么想听的故事吗?"}]
-        if "rag" in st.session_state:
-            config.session_config["configurable"]["session_id"] = f"user_{uuid.uuid4().hex[:8]}"
-        st.rerun()
+            # 创建新对话
+            new_id = str(uuid.uuid4())[:8]
+            st.session_state.current_conversation_id = new_id
+            st.session_state.conversation_messages[new_id] = [
+                {"role": "assistant", "content": "迷途的旅人啊~~让我来为您指引方向吧~"}]
 
-    if st.button("🗑️ 清空对话", use_container_width=True):
-        st.session_state["message"] = [{"role": "assistant", "content": "故事告一段落，是否想听新的故事？"}]
+            # 更新 LangChain 的 session_id
+            config.session_config["configurable"]["session_id"] = f"user_{new_id}"
+            st.rerun()
+
+    with col2:
+        # 刷新按钮
+        if st.button("🔄", help="刷新对话列表"):
+            st.rerun()
+
+    st.markdown("---")
+
+    # ========== 历史对话列表 ==========
+    st.markdown("### 💬 历史对话")
+
+    conversations = get_conversation_list()
+
+    if conversations:
+        for conv in conversations:
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                # 显示对话项
+                if st.button(
+                        f"📝 {conv['title']}",
+                        key=f"conv_{conv['id']}",
+                        use_container_width=True,
+                        help=f"创建于: {conv['created_at']}\n消息数: {conv['message_count']}"
+                ):
+                    # 保存当前对话
+                    if st.session_state.current_conversation_id and st.session_state.current_conversation_id in st.session_state.conversation_messages:
+                        current_messages = st.session_state.conversation_messages[
+                            st.session_state.current_conversation_id]
+                        if current_messages:
+                            title = generate_title(current_messages)
+                            save_conversation(st.session_state.current_conversation_id, title, current_messages)
+
+                    # 加载选中的对话
+                    conv_data = load_conversation(conv["id"])
+                    if conv_data:
+                        st.session_state.current_conversation_id = conv["id"]
+                        st.session_state.conversation_messages[conv["id"]] = conv_data["messages"]
+                        config.session_config["configurable"]["session_id"] = f"user_{conv['id']}"
+                        st.rerun()
+
+            with col2:
+                # 删除按钮
+                if st.button("🗑️", key=f"del_{conv['id']}", help="删除对话"):
+                    delete_conversation(conv["id"])
+                    # 如果删除的是当前对话，清空当前对话
+                    if st.session_state.current_conversation_id == conv["id"]:
+                        st.session_state.current_conversation_id = None
+                        if conv["id"] in st.session_state.conversation_messages:
+                            del st.session_state.conversation_messages[conv["id"]]
+                    st.rerun()
+    else:
+        st.caption("暂无历史对话，点击「新建对话」开始")
+
+    st.markdown("---")
+
+    # ========== 清空所有对话按钮 ==========
+    if st.button("🗑️ 清空所有历史", use_container_width=True):
+        import shutil
+
+        if os.path.exists("saved_conversations"):
+            shutil.rmtree("saved_conversations")
+        st.session_state.conversation_messages = {}
+        st.session_state.current_conversation_id = None
         st.rerun()
 
     st.markdown("---")
+
+    # ========== 原有会话管理按钮 ==========
+    if st.button("🗑️ 清空当前对话", use_container_width=True):
+        if st.session_state.current_conversation_id:
+            st.session_state.conversation_messages[st.session_state.current_conversation_id] = [
+                {"role": "assistant", "content": "故事告一段落，是否想听新的故事？"}
+            ]
+            st.rerun()
 
 # ========== 主界面 ==========
 if custom_icon:
@@ -338,27 +454,28 @@ st.markdown('<div class="subtitle">有问非必答 —— 提瓦特记录者</di
 
 st.divider()
 
-# 初始化会话状态
-if "message" not in st.session_state:
-    st.session_state["message"] = [{"role": "assistant", "content": "迷途的旅人啊~~让我来为您指引方向吧~"}]
+# ========== 如果没有当前对话，创建默认对话 ==========
+if st.session_state.current_conversation_id is None:
+    st.session_state.current_conversation_id = str(uuid.uuid4())[:8]
+    st.session_state.conversation_messages[st.session_state.current_conversation_id] = [
+        {"role": "assistant", "content": "迷途的旅人啊~~让我来为您指引方向吧~"}
+    ]
+    config.session_config["configurable"]["session_id"] = f"user_{st.session_state.current_conversation_id}"
 
-if "rag" not in st.session_state:
-    with st.spinner("正在初始化尼可13号..."):
-        st.session_state["rag"] = RagService()
+# 获取当前对话的消息
+current_messages = st.session_state.conversation_messages.get(st.session_state.current_conversation_id, [])
 
 # ========== 聊天区域 - 使用 avatar 参数显示自定义头像 ==========
 chat_container = st.container()
 
 with chat_container:
-    for idx, message in enumerate(st.session_state["message"]):
+    for idx, message in enumerate(current_messages):
         if message["role"] == "assistant":
-            # 使用 avatar 参数传入 AI 头像图片
             with st.chat_message("assistant", avatar=ai_avatar_img if ai_avatar_img else None):
                 if idx > 0:
                     st.caption("大天使尼可 · 刚刚")
                 st.write(message["content"])
         else:  # user
-            # 使用 avatar 参数传入用户头像图片
             with st.chat_message("user", avatar=user_avatar_img if user_avatar_img else None):
                 if idx > 0:
                     st.caption("用户 · 刚刚")
@@ -386,7 +503,7 @@ if prompt:
     with st.chat_message("user", avatar=user_avatar_img if user_avatar_img else None):
         st.caption("用户 · 刚刚")
         st.write(prompt)
-    st.session_state["message"].append({"role": "user", "content": prompt})
+    current_messages.append({"role": "user", "content": prompt})
 
     # 获取 AI 回复（使用 AI 头像）
     with st.chat_message("assistant", avatar=ai_avatar_img if ai_avatar_img else None):
@@ -396,7 +513,7 @@ if prompt:
         full_response = ""
 
         try:
-            res_stream = st.session_state["rag"].chain.stream(
+            res_stream = st.session_state.rag.chain.stream(
                 {"input": prompt},
                 config.session_config
             )
@@ -414,5 +531,9 @@ if prompt:
             response_placeholder.markdown(error_msg)
             full_response = error_msg
 
-    st.session_state["message"].append({"role": "assistant", "content": full_response})
+    current_messages.append({"role": "assistant", "content": full_response})
+
+    # 自动保存对话
+    save_conversation(st.session_state.current_conversation_id, generate_title(current_messages), current_messages)
+
     st.rerun()

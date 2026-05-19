@@ -1,19 +1,29 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
-
-# 项目数据库
-faiss_db/
-md5.text.
-chat_history/
-
-# 敏感信息
+*.py[cod]
+*.so
+.Python
 .env
-*.log
-.text
+.venv
+venv/
+
+# 项目特定
+chroma_db/
+faiss_db/
+chat_history/
+md5.text
+data/
+
 
 # IDE
 .vscode/
 .idea/
+*.swp
 
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志和临时文件
+*.log
+*.tmp
