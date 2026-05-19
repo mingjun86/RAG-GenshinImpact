@@ -6,7 +6,7 @@ collection_name = "rag"
 persist_directory = "./faiss_db"
 
 # 文本分割配置
-chunk_size = 600
+chunk_size = 700
 chunk_overlap = 50
 separators = ["\n\n", "\n", ".", "?", "!", "。", "？", "！", " ", ""]
 max_split_char_number = 800  # 文本分割的阈值
@@ -28,6 +28,6 @@ session_config = {
 }
 
 # 生成配置
-temperature = 0.1
+temperature = 0.2
 max_tokens = 2048
 streaming = True  # 启用流式输出
