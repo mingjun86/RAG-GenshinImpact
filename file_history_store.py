@@ -8,8 +8,8 @@ from langchain_core.messages import message_to_dict, messages_from_dict, BaseMes
 CONVERSATIONS_DIR = "saved_conversations"
 
 
-def get_conversation_list() -> List[Dict[str, Any]]:
-    """获取所有保存的对话列表"""
+def get_conversation_list(use_cache=True) -> List[Dict[str, Any]]:
+    """获取所有保存的对话列表（只返回有用户消息的对话）"""
     if not os.path.exists(CONVERSATIONS_DIR):
         return []
 
@@ -20,6 +20,12 @@ def get_conversation_list() -> List[Dict[str, Any]]:
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+
+                messages = data.get("messages", [])
+                # 只保留有用户消息的对话
+                has_user = any(msg.get("role") == "user" for msg in messages)
+
+                if has_user:
                     conversations.append({
                         "id": filename.replace(".json", ""),
                         "title": data.get("title", "未命名对话"),
@@ -30,30 +36,40 @@ def get_conversation_list() -> List[Dict[str, Any]]:
             except:
                 pass
 
-    # 按更新时间倒序排列
+    # 按更新时间倒序排列（最新的在前）
     conversations.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
     return conversations
 
 
-def save_conversation(conversation_id: str, title: str, messages: List[Dict]):
-    """保存对话到文件"""
+def save_conversation(conversation_id: str, title: str, messages: List[Dict], update_timestamp=True):
+    """保存对话到文件
+
+    Args:
+        conversation_id: 对话ID
+        title: 对话标题
+        messages: 消息列表
+        update_timestamp: 是否更新时间戳（只有内容变化时才更新）
+    """
     os.makedirs(CONVERSATIONS_DIR, exist_ok=True)
 
     filepath = os.path.join(CONVERSATIONS_DIR, f"{conversation_id}.json")
+
+    # 读取旧数据（如果存在）
+    old_data = {}
+    if os.path.exists(filepath):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            old_data = json.load(f)
 
     data = {
         "id": conversation_id,
         "title": title,
         "messages": messages,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "created_at": old_data.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        # 只有内容变化或强制更新时才更新 updated_at
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S") if update_timestamp else old_data.get("updated_at",
+                                                                                                         datetime.now().strftime(
+                                                                                                             "%Y-%m-%d %H:%M:%S"))
     }
-
-    # 如果文件已存在，保留创建时间
-    if os.path.exists(filepath):
-        with open(filepath, 'r', encoding='utf-8') as f:
-            old_data = json.load(f)
-            data["created_at"] = old_data.get("created_at", data["created_at"])
 
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -121,3 +137,18 @@ class FileChatMessageHistory:
 def get_history(session_id):
     """获取历史记录（供 LangChain 使用）"""
     return FileChatMessageHistory(session_id, "chat_history")
+
+
+def has_user_message(conversation_id: str) -> bool:
+    """检查对话是否有用户消息（是否为空对话）"""
+    filepath = os.path.join(CONVERSATIONS_DIR, f"{conversation_id}.json")
+    if not os.path.exists(filepath):
+        return False
+
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        messages = data.get("messages", [])
+        return any(msg.get("role") == "user" for msg in messages)
+    except:
+        return False

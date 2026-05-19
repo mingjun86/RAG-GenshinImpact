@@ -342,18 +342,21 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ========== 新建对话按钮 ==========
+    # ========== 新建对话和刷新按钮 ==========
     col1, col2 = st.columns([3, 1])
     with col1:
-        if st.button("➕ 新建对话", use_container_width=True):
-            # 保存当前对话
+        if st.button("➕ 新建对话", use_container_width=True, key="new_conversation_btn"):
+            # 保存当前对话（只有有用户消息时才保存）
             if st.session_state.current_conversation_id and st.session_state.current_conversation_id in st.session_state.conversation_messages:
                 messages = st.session_state.conversation_messages[st.session_state.current_conversation_id]
                 if messages:
-                    title = generate_title(messages)
-                    save_conversation(st.session_state.current_conversation_id, title, messages)
+                    has_user_message = any(msg.get("role") == "user" for msg in messages)
+                    if has_user_message:  # 只有有用户消息才保存
+                        title = generate_title(messages)
+                        save_conversation(st.session_state.current_conversation_id, title, messages,
+                                          update_timestamp=False)
 
-            # 创建新对话
+            # 创建新对话（不保存到文件，只存在内存中）
             new_id = str(uuid.uuid4())[:8]
             st.session_state.current_conversation_id = new_id
             st.session_state.conversation_messages[new_id] = [
@@ -361,11 +364,18 @@ with st.sidebar:
 
             # 更新 LangChain 的 session_id
             config.session_config["configurable"]["session_id"] = f"user_{new_id}"
+
+            # 注意：新对话不保存到文件，只有发送消息后才会保存
+            # 刷新缓存列表（新对话不会出现在历史中，因为还没保存）
+            st.session_state.cached_conversations = get_conversation_list()
+
             st.rerun()
 
     with col2:
-        # 刷新按钮
-        if st.button("🔄", help="刷新对话列表"):
+        # 刷新按钮 - 和新建对话按钮平齐
+        if st.button("🔄", key="refresh_history_btn", help="刷新对话列表", use_container_width=True):
+            st.session_state.cached_conversations = get_conversation_list()
+            st.session_state.last_update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             st.rerun()
 
     st.markdown("---")
@@ -373,7 +383,16 @@ with st.sidebar:
     # ========== 历史对话列表 ==========
     st.markdown("### 💬 历史对话")
 
-    conversations = get_conversation_list()
+    # 使用 session_state 缓存对话列表，避免每次刷新都重新读取
+    if "cached_conversations" not in st.session_state:
+        st.session_state.cached_conversations = get_conversation_list()
+    if "last_update_time" not in st.session_state:
+        st.session_state.last_update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 显示对话数量
+    st.caption(f"共 {len(st.session_state.cached_conversations)} 个对话")
+
+    conversations = st.session_state.cached_conversations
 
     if conversations:
         for conv in conversations:
@@ -386,13 +405,15 @@ with st.sidebar:
                         use_container_width=True,
                         help=f"创建于: {conv['created_at']}\n消息数: {conv['message_count']}"
                 ):
-                    # 保存当前对话
+                    # 保存当前对话（如果存在）
                     if st.session_state.current_conversation_id and st.session_state.current_conversation_id in st.session_state.conversation_messages:
                         current_messages = st.session_state.conversation_messages[
                             st.session_state.current_conversation_id]
                         if current_messages:
                             title = generate_title(current_messages)
-                            save_conversation(st.session_state.current_conversation_id, title, current_messages)
+                            # 切换对话时不更新时间戳
+                            save_conversation(st.session_state.current_conversation_id, title, current_messages,
+                                              update_timestamp=False)
 
                     # 加载选中的对话
                     conv_data = load_conversation(conv["id"])
@@ -406,6 +427,8 @@ with st.sidebar:
                 # 删除按钮
                 if st.button("🗑️", key=f"del_{conv['id']}", help="删除对话"):
                     delete_conversation(conv["id"])
+                    # 更新缓存
+                    st.session_state.cached_conversations = get_conversation_list()
                     # 如果删除的是当前对话，清空当前对话
                     if st.session_state.current_conversation_id == conv["id"]:
                         st.session_state.current_conversation_id = None
@@ -414,8 +437,6 @@ with st.sidebar:
                     st.rerun()
     else:
         st.caption("暂无历史对话，点击「新建对话」开始")
-
-    st.markdown("---")
 
     # ========== 清空所有对话按钮 ==========
     if st.button("🗑️ 清空所有历史", use_container_width=True):
@@ -450,8 +471,20 @@ if custom_icon:
 else:
     st.markdown('<div class="main-title">尼可13号</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="subtitle">有问非必答 —— 提瓦特记录者</div>', unsafe_allow_html=True)
+# 副标题
 
+
+st.markdown(
+    f'''
+    <div style="position: relative; margin-bottom: 2rem; width: 100%;">
+        <div class="subtitle" style="margin-bottom: 0.25rem;"> ——提瓦特记录者——有问必答但不保真哦~</div>
+        <div style="text-align: center; font-size: 0.65rem; color: rgba(255, 180, 80, 0.55); font-style: italic; padding-right: 0px; transition: all 0.3s ease;">
+                （才不是因为忌惮天理所以不敢说真话呢~）
+         </div>
+    </div>
+     ''',
+    unsafe_allow_html=True
+ )
 st.divider()
 
 # ========== 如果没有当前对话，创建默认对话 ==========
@@ -487,8 +520,8 @@ prompt = st.chat_input("💬 输入你想了解的故事...")
 st.markdown("### 🔍 快捷提问")
 quick_questions = [
     "蒙德是怎样建成的？",
-    "简述已知提瓦特的重大历史事件？",
-    "稻妻的雷电将军有什么故事？",
+    "简述已知的提瓦特重大历史事件",
+    "纳塔龙族的科技水平怎么样？",
     "坎瑞亚是什么？"
 ]
 
@@ -513,8 +546,20 @@ if prompt:
         full_response = ""
 
         try:
+            # ========== 关键修改：准备历史消息 ==========
+            from langchain_core.messages import HumanMessage, AIMessage
+
+            history_messages = []
+            # 转换历史消息（排除刚添加的用户消息）
+            for msg in current_messages[:-1]:
+                if msg["role"] == "user":
+                    history_messages.append(HumanMessage(content=msg["content"]))
+                elif msg["role"] == "assistant":
+                    history_messages.append(AIMessage(content=msg["content"]))
+
+            # 在 app_qa.py 中，调用部分保持最简单即可
             res_stream = st.session_state.rag.chain.stream(
-                {"input": prompt},
+                {"input": prompt},  # 只需要传入用户问题
                 config.session_config
             )
 
@@ -533,7 +578,17 @@ if prompt:
 
     current_messages.append({"role": "assistant", "content": full_response})
 
-    # 自动保存对话
-    save_conversation(st.session_state.current_conversation_id, generate_title(current_messages), current_messages)
+    # 自动保存对话（只有存在用户消息时才保存）
+    has_user_message = any(msg.get("role") == "user" for msg in current_messages)
+
+    if has_user_message:
+        save_conversation(
+            st.session_state.current_conversation_id,
+            generate_title(current_messages),
+            current_messages,
+            update_timestamp=True
+        )
+        # 更新缓存的对话列表
+        st.session_state.cached_conversations = get_conversation_list()
 
     st.rerun()

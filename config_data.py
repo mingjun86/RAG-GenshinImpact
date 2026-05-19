@@ -1,24 +1,33 @@
+# MD5 记录文件
 md5_path = "md5.text"
 
-collection_name="rag"
-persist_directory="./faiss_db"
+# 向量库配置
+collection_name = "rag"
+persist_directory = "./faiss_db"
 
-chunk_size=1000
+# 文本分割配置
+chunk_size = 1000
 chunk_overlap = 100
-separators = ["\n\n","\n",".","?","!","。","？","！"," ",""]
-max_split_char_number = 1000 #文本分割的阈值
+separators = ["\n\n", "\n", ".", "?", "!", "。", "？", "！", " ", ""]
+max_split_char_number = 1000  # 文本分割的阈值
 
-similarity_threshold = 6 #检索返回匹配的文档数量
+# 检索配置
+similarity_threshold = 6  # 检索返回匹配的文档数量
+
 
 embedding_model_name = "text-embedding-v4"
-chat_model_name  = "qwen3-max"
 
+# 对话模型
+chat_model_name = "qwen-max"
+
+# 会话配置
 session_config = {
     "configurable": {
         "session_id": "user_001",
     }
 }
 
+# 生成配置
 temperature = 0.3
 max_tokens = 2048
 streaming = True  # 启用流式输出
