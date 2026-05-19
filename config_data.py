@@ -12,7 +12,7 @@ separators = ["\n\n", "\n", ".", "?", "!", "。", "？", "！", " ", ""]
 max_split_char_number = 800  # 文本分割的阈值
 
 # 检索配置
-similarity_threshold = 4  # 检索返回匹配的文档数量
+similarity_threshold = 5  # 检索返回匹配的文档数量
 
 
 embedding_model_name = "text-embedding-v4"
@@ -28,6 +28,6 @@ session_config = {
 }
 
 # 生成配置
-temperature = 0.2
+temperature = 0.1
 max_tokens = 2048
 streaming = True  # 启用流式输出
