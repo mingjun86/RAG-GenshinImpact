@@ -351,11 +351,14 @@ with st.sidebar:
                 messages = st.session_state.conversation_messages[st.session_state.current_conversation_id]
                 if messages:
                     has_user_message = any(msg.get("role") == "user" for msg in messages)
-                    if has_user_message:  # 只有有用户消息才保存
+                    if has_user_message:
                         title = generate_title(messages)
-                        save_conversation(st.session_state.current_conversation_id, title, messages,
-                                          update_timestamp=False)
-
+                        save_conversation(
+                            st.session_state.current_conversation_id,
+                            title,
+                            messages,
+                            update_timestamp=False  # 切换对话时不更新时间戳
+                        )
             # 创建新对话（不保存到文件，只存在内存中）
             new_id = str(uuid.uuid4())[:8]
             st.session_state.current_conversation_id = new_id
@@ -411,9 +414,12 @@ with st.sidebar:
                             st.session_state.current_conversation_id]
                         if current_messages:
                             title = generate_title(current_messages)
-                            # 切换对话时不更新时间戳
-                            save_conversation(st.session_state.current_conversation_id, title, current_messages,
-                                              update_timestamp=False)
+                            save_conversation(
+                                st.session_state.current_conversation_id,
+                                title,
+                                current_messages,
+                                update_timestamp=False  # 切换对话时不更新时间戳
+                            )
 
                     # 加载选中的对话
                     conv_data = load_conversation(conv["id"])
@@ -586,8 +592,9 @@ if prompt:
             st.session_state.current_conversation_id,
             generate_title(current_messages),
             current_messages,
-            update_timestamp=True
+            update_timestamp=True  # 有新消息时更新时间戳
         )
+        
         # 更新缓存的对话列表
         st.session_state.cached_conversations = get_conversation_list()
 

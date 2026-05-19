@@ -65,7 +65,6 @@ def save_conversation(conversation_id: str, title: str, messages: List[Dict], up
         "title": title,
         "messages": messages,
         "created_at": old_data.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-        # 只有内容变化或强制更新时才更新 updated_at
         "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S") if update_timestamp else old_data.get("updated_at",
                                                                                                          datetime.now().strftime(
                                                                                                              "%Y-%m-%d %H:%M:%S"))
@@ -73,7 +72,6 @@ def save_conversation(conversation_id: str, title: str, messages: List[Dict], up
 
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-
 
 def load_conversation(conversation_id: str) -> Dict[str, Any]:
     """加载指定的对话"""
