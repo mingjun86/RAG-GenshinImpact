@@ -445,23 +445,40 @@ with st.sidebar:
         st.caption("暂无历史对话，点击「新建对话」开始")
 
     # ========== 清空所有对话按钮 ==========
-    if st.button("🗑️ 清空所有历史", use_container_width=True):
+    if st.button("🗑️ 清空所有历史", use_container_width=True, key="clear_all_history_btn"):
         import shutil
 
+        # 删除所有对话文件
         if os.path.exists("saved_conversations"):
             shutil.rmtree("saved_conversations")
+            os.makedirs("saved_conversations", exist_ok=True)
+
+        # 清空 session_state
         st.session_state.conversation_messages = {}
         st.session_state.current_conversation_id = None
+        st.session_state.cached_conversations = []
+
+        # 创建新的默认对话
+        new_id = str(uuid.uuid4())[:8]
+        st.session_state.current_conversation_id = new_id
+        st.session_state.conversation_messages[new_id] = [
+            {"role": "assistant", "content": "迷途的旅人啊~~让我来为您指引方向吧~"}
+        ]
+        config.session_config["configurable"]["session_id"] = f"user_{new_id}"
+
         st.rerun()
 
     st.markdown("---")
 
-    # ========== 原有会话管理按钮 ==========
-    if st.button("🗑️ 清空当前对话", use_container_width=True):
+    # ========== 清空当前对话按钮 ==========
+    if st.button("🗑️ 清空当前对话", use_container_width=True, key="clear_current_btn"):
         if st.session_state.current_conversation_id:
+            # 只清空当前对话的内容，但保留对话文件（可选）
             st.session_state.conversation_messages[st.session_state.current_conversation_id] = [
                 {"role": "assistant", "content": "故事告一段落，是否想听新的故事？"}
             ]
+            # 更新缓存列表中的消息数量
+            st.session_state.cached_conversations = get_conversation_list()
             st.rerun()
 
 # ========== 主界面 ==========
@@ -528,7 +545,7 @@ quick_questions = [
     "蒙德是怎样建成的？",
     "简述已知的提瓦特重大历史事件",
     "纳塔龙族的科技水平怎么样？",
-    "坎瑞亚是什么？"
+    "深渊、地脉是什么？"
 ]
 
 cols = st.columns(len(quick_questions))
@@ -594,7 +611,7 @@ if prompt:
             current_messages,
             update_timestamp=True  # 有新消息时更新时间戳
         )
-        
+
         # 更新缓存的对话列表
         st.session_state.cached_conversations = get_conversation_list()
 
