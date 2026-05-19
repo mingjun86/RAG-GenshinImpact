@@ -6,8 +6,8 @@ collection_name = "rag"
 persist_directory = "./faiss_db"
 
 # 文本分割配置
-chunk_size = 800
-chunk_overlap = 100
+chunk_size = 1200
+chunk_overlap = 150
 separators = ["\n\n", "\n", ".", "?", "!", "。", "？", "！", " ", ""]
 max_split_char_number = 2000  # 文本分割的阈值
 
