@@ -534,7 +534,7 @@ with chat_container:
         else:  # user
             with st.chat_message("user", avatar=user_avatar_img if user_avatar_img else None):
                 if idx > 0:
-                    st.caption("用户 · 刚刚")
+                    st.caption("旅行者 · 刚刚")
                 st.write(message["content"])
 
 # ========== 输入区域 ==========
@@ -543,7 +543,7 @@ prompt = st.chat_input("💬 输入你想了解的故事...")
 st.markdown("### 🔍 快捷提问")
 quick_questions = [
     "蒙德是怎样建成的？",
-    "简述已知的提瓦特重大历史事件",
+    "简述提瓦特历史上的重要事件",
     "纳塔龙族的科技水平怎么样？",
     "深渊、地脉是什么？"
 ]
@@ -557,7 +557,7 @@ for i, q in enumerate(quick_questions):
 if prompt:
     # 显示用户消息（使用用户头像）
     with st.chat_message("user", avatar=user_avatar_img if user_avatar_img else None):
-        st.caption("用户 · 刚刚")
+        st.caption("旅行者 · 刚刚")
         st.write(prompt)
     current_messages.append({"role": "user", "content": prompt})
 
