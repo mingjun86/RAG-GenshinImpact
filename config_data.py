@@ -6,10 +6,10 @@ collection_name = "rag"
 persist_directory = "./faiss_db"
 
 # 文本分割配置
-chunk_size = 1200
-chunk_overlap = 150
+chunk_size = 600
+chunk_overlap = 50
 separators = ["\n\n", "\n", ".", "?", "!", "。", "？", "！", " ", ""]
-max_split_char_number = 2000  # 文本分割的阈值
+max_split_char_number = 8000  # 文本分割的阈值
 
 # 检索配置
 similarity_threshold = 5  # 检索返回匹配的文档数量
