@@ -8,8 +8,7 @@ __pycache__/
 venv/
 
 # 项目特定
-chroma_db/
-faiss_db/
+
 chat_history/
 md5.text
 data/
