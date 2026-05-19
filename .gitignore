@@ -5,7 +5,7 @@ __pycache__/
 
 # 项目数据库
 faiss_db/
-md5.text
+md5.text.
 chat_history/
 
 # 敏感信息
@@ -17,4 +17,3 @@ chat_history/
 .vscode/
 .idea/
 
-Image/
