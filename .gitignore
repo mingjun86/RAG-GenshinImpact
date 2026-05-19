@@ -13,7 +13,7 @@ faiss_db/
 chat_history/
 md5.text
 data/
-
+saved_conversations/
 
 # IDE
 .vscode/
